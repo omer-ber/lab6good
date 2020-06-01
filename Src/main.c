@@ -170,44 +170,37 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 				if (i==8)
 				{
 					frame[i]=temp->destinationMac[i-8];
-					printf("%x-", frame[i]);
 					HAL_CRC_Calculate(&hcrc,(uint32_t*)&(temp->destinationMac[i-8]),1);
 				}
 				else
 				{
 					frame[i]=temp->destinationMac[i-8];
-					printf("%x-", frame[i]);					
 					crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(temp->destinationMac[i-8]),1);		
 				}
 			}
 			for(i=14;i<20;i++)
 			{
 				frame[i]=myMAC[i-14];
-				printf("%x-", frame[i]);
 				crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(myMAC[i-14]),1);
 			}
 			for(i=20;i<24;i++)
 			{
 				frame[i]=0;
-				printf("%x-", frame[i]);
 				crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(frame[i]),1);				
 			}
 			for(i=24;i<26;i++)
 			{
 				frame[i]=temp->payloadSize[i-24];
-				printf("%x-", frame[i]);
 				crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(temp->payloadSize[i-24]),1);
 			}
 			for(i=26;i<size+26;i++)
 			{
 				frame[i]=temp->payload[i-26];
-				printf("%x-", frame[i]);
 				crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(temp->payload[i-26]),1);
 			}
 			for(i=26+size;i<68;i++)
 			{
 				frame[i]=0;
-				printf("%x-", frame[i]);
 				crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(frame[i]),1);
 			}
 			if(size<42)
@@ -221,7 +214,6 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 				i=26+size;
 				frame_size=30+size;
 			}
-			printf("%d-----",frame_size);
 			frame[i]=crc&0xFF;
 			frame[i+1]=crc&0xFF00;
 			frame[i+2]=crc&0xFF0000;
@@ -321,18 +313,15 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 				else
 				{					
 				new_crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(new_frame[i2]),1);
-				printf("%x-",new_frame[i2]);
 				}
 			}
 			old_crc = new_frame[k-4];
-			printf("%d--",k);
 			old_crc += new_frame[k-3]*256;
 			old_crc += new_frame[k-2]*65536;
 			old_crc += new_frame[k-1]*(2^24);
-
+			//old_crc+=1;
 			if (old_crc!=new_crc)
 			{
-				printf("nogooddd");
 				frame_build.syndrom = crc_error;
 				ready_for_llc=1;
 				flag=1;
@@ -366,7 +355,6 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 						{
 							frame_build.payloadSize[i3-24]=new_frame[i3-1];
 							payload_size = new_frame[i3-1]+new_frame[i3]*256;
-							//printf("%x",payload_size);
 							if(payload_size>1500)
 							{
 								frame_build.syndrom = payload_error;
@@ -432,13 +420,13 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 					}
 					break;
 				case frame_size_error:
-					printf("Frame size is wrong\n");
+					printf("\r\nFrame size is wrong");
 					break;
 				case crc_error:
-					printf("Data corrupted\n");
+					printf("\r\nData corrupted");
 					break;
 				case payload_error:
-					printf("payload_size is too big\n");
+					printf("\r\npayload_size is too big");
 					break;
 				
 			}

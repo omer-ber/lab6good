@@ -3,7 +3,7 @@
 <title>Static Call Graph - [DLL\DLL.axf]</title></head>
 <body><HR>
 <H1>Static Call Graph for image DLL\DLL.axf</H1><HR>
-<BR><P>#&#060CALLGRAPH&#062# ARM Linker, 5060750: Last Updated: Wed May 27 13:01:13 2020
+<BR><P>#&#060CALLGRAPH&#062# ARM Linker, 5060750: Last Updated: Mon Jun 01 15:59:08 2020
 <BR><P>
 <H3>Maximum Stack Usage =        232 bytes + Unknown(Cycles, Untraceable Function Pointers)</H3><H3>
 Call chain for Maximum Stack Depth:</H3>
@@ -813,7 +813,7 @@ Global Symbols
 <BR>[Called By]<UL><LI><a href="#[54]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;main
 </UL>
 
-<P><STRONG><a name="[a9]"></a>Mac_Rx</STRONG> (Thumb, 450 bytes, Stack size 32 bytes, main.o(i.Mac_Rx))
+<P><STRONG><a name="[a9]"></a>Mac_Rx</STRONG> (Thumb, 422 bytes, Stack size 32 bytes, main.o(i.Mac_Rx))
 <BR><BR>[Stack]<UL><LI>Max Depth = 72<LI>Call Chain = Mac_Rx &rArr; HAL_CRC_Calculate &rArr; CRC_Handle_8
 </UL>
 <BR>[Calls]<UL><LI><a href="#[6d]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;HAL_CRC_Calculate
@@ -821,12 +821,11 @@ Global Symbols
 <LI><a href="#[aa]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;isRxByteReady
 <LI><a href="#[ab]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;getByte
 <LI><a href="#[5c]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;malloc
-<LI><a href="#[a2]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;__2printf
 </UL>
 <BR>[Called By]<UL><LI><a href="#[54]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;main
 </UL>
 
-<P><STRONG><a name="[ac]"></a>Mac_Tx</STRONG> (Thumb, 554 bytes, Stack size 24 bytes, main.o(i.Mac_Tx))
+<P><STRONG><a name="[ac]"></a>Mac_Tx</STRONG> (Thumb, 464 bytes, Stack size 24 bytes, main.o(i.Mac_Tx))
 <BR><BR>[Stack]<UL><LI>Max Depth = 64<LI>Call Chain = Mac_Tx &rArr; HAL_CRC_Calculate &rArr; CRC_Handle_8
 </UL>
 <BR>[Calls]<UL><LI><a href="#[b1]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;HAL_TIM_Base_Start_IT
@@ -838,7 +837,6 @@ Global Symbols
 <LI><a href="#[ae]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;getTxRequeset
 <LI><a href="#[5c]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;malloc
 <LI><a href="#[a3]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;free
-<LI><a href="#[a2]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;__2printf
 </UL>
 <BR>[Called By]<UL><LI><a href="#[54]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;main
 </UL>
@@ -991,8 +989,6 @@ Global Symbols
 <BR><BR>[Stack]<UL><LI>Max Depth = 24<LI>Call Chain = __2printf
 </UL>
 <BR>[Called By]<UL><LI><a href="#[54]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;main
-<LI><a href="#[ac]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;Mac_Tx
-<LI><a href="#[a9]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;Mac_Rx
 <LI><a href="#[a1]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;LLC_Rx
 <LI><a href="#[c1]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;printer
 </UL>
