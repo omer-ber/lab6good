@@ -70,9 +70,19 @@ uint8_t crc =0; ;
 int ready_for_llc=0;
 static Ethernet_res frame_build ;
 static uint8_t new_frame[1522];
-
-
+int times_out =0;
+static int got_ack=0;
+static int sub_llc_ready=0;
+Ethernet_req* temp;
 uint8_t myMAC[] ={0xcc,0xcc,0xcc,0xcc,0xcc,0xcc}; 	//Our MAC address
+uint8_t PSN =0;
+uint8_t ACK =0;
+int llc_Rx_ready=0;
+static int type =0;
+Ethernet_req* ack_frame;
+
+
+
 
 
 
@@ -128,111 +138,349 @@ extern uint8_t sendByte(uint8_t data); 							//sent byte to phy, it's mandatory
 extern uint8_t isNewTxRequest(void); 								//check if the upper_layer sent us new data to transmit.
 extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to transmit, it's mandatory to use "isNewTxRequest()" before call this function.
 //Important! - after finish using the Ethernet_req struct, you have to free it and also free the Ethernet_req.payload.
+	
+	void Sub_LLC()
+	{
+		static int first_time=1;
+		static int rand =1;
+		static int new_size[2]={0,0};
+		if(first_time)
+		{
+			//printf("spayski bor shel tahat");
+			if (isNewTxRequest())
+			{
+
+				first_time=0;
+				temp = getTxRequeset();
+				if (rand)
+				{
+					temp->typeLength[0] = 0x88;
+					temp->typeLength[1] = 0x08;
+					PSN=1-PSN;
+					ACK =0;
+					sub_llc_ready=1;
+				}
+				else
+				{
+					temp->typeLength[0] = 0x00;
+					temp->typeLength[1] = 0x00;					
+					sub_llc_ready=1;
+					ACK = 0;		
+				}
+			}
+		}
+		else if (ready_for_llc)
+		{
+			if (frame_build.typeLength[1]==0x08 && frame_build.typeLength[0]==0x88 )
+			{
+				
+				if(frame_build.payload[0] == 0)
+				{
+					ACK=1;
+					sub_llc_ready=1;
+					llc_Rx_ready=1;
+					ack_frame->payloadSize[0]=0;
+					ack_frame->payloadSize[1]=0;
+					ack_frame->typeLength[0]=0x88;
+					ack_frame->typeLength[1]=0x08;					
+					//new_size[0]=temp->payloadSize[0];
+					//new_size[1]=temp->payloadSize[1];					
+					//temp->payloadSize[0]=0;
+					//temp->payloadSize[1]=0;
+					for(int p=0;p<6;p++)
+					{
+						ack_frame->sourceMac[p]=temp->destinationMac[p];
+						ack_frame->destinationMac[p] = myMAC[p];
+					}
+				}
+				else
+				{
+					got_ack=1;
+					HAL_TIM_Base_Stop_IT(&htim2);
+					printf("\r\nGot that ACK bro");
+				}
+			}
+			else
+			{
+				llc_Rx_ready=1;
+			}
+			ready_for_llc=0;
+		}
+		else if (times_out==0 && got_ack )
+		{
+			if (temp!=NULL)
+			{
+				free((void*)temp->payload);
+				free(temp);
+				temp=NULL;
+			}
+			if (isNewTxRequest())
+			{
+				//stop timer
+				temp = getTxRequeset();
+				if (rand)
+				{
+					temp->typeLength[0] = 0x88;
+					temp->typeLength[1] = 0x08;
+					PSN=1-PSN;
+					ACK =0;
+					sub_llc_ready=1;
+				}
+				else
+				{
+					temp->typeLength[0] = 0x00;
+					temp->typeLength[1] = 0x00;					
+					sub_llc_ready=1;					
+				}
+				got_ack=0;
+			}
+		}
+		else if(times_out && !got_ack && 0)
+		{
+			printf("ma");
+			times_out=0;
+			temp->payloadSize[0]=new_size[0];
+			temp->payloadSize[1]=new_size[1];
+			for(int p=0;p<6;p++)
+			{
+				temp->destinationMac[p]=temp->sourceMac[p];
+				temp->sourceMac[p] = myMAC[p];				
+			}				
+			sub_llc_ready=1;		//resend || maybe reset stuff
+		}
+	}
+
+	
+	
+	
 	void Mac_Tx()
 	{
+		static int flagi2=1;
 		static int frame_size=0;
 		static int j=0;
 		static uint8_t *frame;
 		static int flagi=0;
 		static int size=0;
 		static int i=0;
-		
-		if (isNewTxRequest())
+		if (sub_llc_ready)
 		{
-			if (ifg_tx_flag)
-			{ 
-			Ethernet_req* temp = getTxRequeset();
-			size=(temp->payloadSize[0] + (temp->payloadSize[1]*256));
-			if (size<=42)
-			{
-				frame = (uint8_t*) malloc(72*sizeof(uint8_t)); //--------------
-			}
-			else
-			{
-				frame = (uint8_t*) malloc((size+30)*sizeof(uint8_t)); //-----------
-				
-			}
-			for(i=0; i<8;i++)
-			{
-				if(i!=7)
+				//printf("here");
+				type = temp->typeLength[1]+256*temp->typeLength[0];				
+				//got_ack=1; //if there is error maybe shoouldnt put it 1
+				if (ifg_tx_flag)
+				{ 
+				sub_llc_ready=0;	
+				size=(temp->payloadSize[0] + (temp->payloadSize[1]*256));
+				if(ACK)
 				{
-					frame[i]=0xAA;
+					size=2;
+				}
+				if (size<=42)
+				{
+					frame = (uint8_t*) malloc(72*sizeof(uint8_t)); //--------------
+				}
+				else
+				{
+					frame = (uint8_t*) malloc((size+30)*sizeof(uint8_t)); //-----------
+					
+				}
+				for(i=0; i<8;i++)
+				{
+					if(i!=7)
+					{
+						frame[i]=0xAA;
+						
+					}
+					else
+					{
+						frame[i]=0xAB;
+						
+					}
+				}
+				for(i=8;i<14;i++)
+				{
+					if (i==8)
+					{
+						if(ACK)
+						{
+							frame[i]=ack_frame->destinationMac[i-8];
+							HAL_CRC_Calculate(&hcrc,(uint32_t*)&(temp->destinationMac[i-8]),1);		
+						}
+						else
+						{
+							frame[i]=temp->destinationMac[i-8];
+							HAL_CRC_Calculate(&hcrc,(uint32_t*)&(temp->destinationMac[i-8]),1);
+						}
+					}
+					else
+					{
+						if(ACK)
+						{
+							frame[i]=ack_frame->destinationMac[i-8];
+							crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(temp->destinationMac[i-8]),1);		
+						}
+						else
+						{
+							frame[i]=temp->destinationMac[i-8];
+							crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(temp->destinationMac[i-8]),1);		
+						}						
+	
+					}
+				}
+				for(i=14;i<20;i++)
+				{
+					if (ACK)
+					{
+						frame[i]=ack_frame->sourceMac[i-14];
+						crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(ack_frame->sourceMac[i-14]),1);						
+					}
+					else
+					{
+						frame[i]=myMAC[i-14];
+						crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(myMAC[i-14]),1);
+					}
+				}
+				for(i=20;i<24;i++)
+				{
+					frame[i]=0;
+					crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(frame[i]),1);				
+				}
+				for(i=24;i<26;i++)
+				{
+					if(type == 0)
+					{
+						frame[i]=temp->payloadSize[i-24];
+						crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(temp->payloadSize[i-24]),1);
+					}
+					else
+					{
+						if(ACK)
+						{
+							if(i==24)
+							{
+								frame[25]=ack_frame->typeLength[0];
+								crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(ack_frame->typeLength[0]),1);							
+							}
+							else
+							{
+								frame[24]=ack_frame->typeLength[1];							
+								crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(ack_frame->typeLength[1]),1);
+							}											
+						}
+						else
+						{
+								
+							if(i==24)
+							{
+								frame[25]=temp->typeLength[0];
+								crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(temp->typeLength[0]),1);							
+							}
+							else
+							{
+								frame[24]=temp->typeLength[1];							
+								crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(temp->typeLength[1]),1);
+							}							
+						}
+					}
+				}
+				for(i=26;i<size+26;i++)
+				{
+					if (type == 0)
+					{
+						frame[i]=temp->payload[i-26];
+						crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(temp->payload[i-26]),1);
+					}
+					else
+					{
+						if (i==26)
+						{
+							size+=4;
+							frame[26]=ACK;
+							crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(ACK),1);							
+							frame[27]=PSN;
+							crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(PSN),1);
+							if(ACK)
+							{
+								frame[28]=ack_frame->payloadSize[0];
+								crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(ack_frame->payloadSize[0]),1);							
+								frame[29]=ack_frame->payloadSize[1];
+								crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(ack_frame->payloadSize[1]),1);
+								i=29;								
+							}
+							else
+							{								
+								frame[28]=temp->payloadSize[0];
+								crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(temp->payloadSize[0]),1);							
+								frame[29]=temp->payloadSize[1];
+								crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(temp->payloadSize[1]),1);
+								i=29;
+							}
+						}
+						else
+						{
+							if (ACK)
+							{
+								frame[i]=ack_frame->payload[i-30];
+								crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(ack_frame->payload[i-30]),1);								
+							}
+							else
+							{
+								frame[i]=temp->payload[i-30];
+								crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(temp->payload[i-30]),1);
+							}
+						}
+					}
+				}
+				if (type==0)
+				{		
+					for(i=26+size;i<68;i++)
+					{
+						frame[i]=0;
+						crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(frame[i]),1);
+					}
+				}
+				else
+				{
+					for(i=30+size;i<68;i++)
+					{
+						frame[i]=0;
+						crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(frame[i]),1);
+					}
+				}					
+				if(size<42)
+				{
+					i=68;
+					frame_size=72;
 					
 				}
 				else
 				{
-					frame[i]=0xAB;
-					
+					i=26+size;
+					frame_size=30+size;
 				}
-			}
-			for(i=8;i<14;i++)
-			{
-				if (i==8)
-				{
-					frame[i]=temp->destinationMac[i-8];
-					HAL_CRC_Calculate(&hcrc,(uint32_t*)&(temp->destinationMac[i-8]),1);
+				frame[i]=crc&0xFF;
+				frame[i+1]=crc&0xFF00;
+				frame[i+2]=crc&0xFF0000;
+				frame[i+3]=crc&0xFF000000;
+
+				//in the end of using 'temp' you have to free memory:
+					flagi=1;
+
 				}
-				else
-				{
-					frame[i]=temp->destinationMac[i-8];
-					crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(temp->destinationMac[i-8]),1);		
-				}
-			}
-			for(i=14;i<20;i++)
-			{
-				frame[i]=myMAC[i-14];
-				crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(myMAC[i-14]),1);
-			}
-			for(i=20;i<24;i++)
-			{
-				frame[i]=0;
-				crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(frame[i]),1);				
-			}
-			for(i=24;i<26;i++)
-			{
-				frame[i]=temp->payloadSize[i-24];
-				crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(temp->payloadSize[i-24]),1);
-			}
-			for(i=26;i<size+26;i++)
-			{
-				frame[i]=temp->payload[i-26];
-				crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(temp->payload[i-26]),1);
-			}
-			for(i=26+size;i<68;i++)
-			{
-				frame[i]=0;
-				crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(frame[i]),1);
-			}
-			if(size<42)
-			{
-				i=68;
-				frame_size=72;
+			//------
 				
-			}
-			else
-			{
-				i=26+size;
-				frame_size=30+size;
-			}
-			frame[i]=crc&0xFF;
-			frame[i+1]=crc&0xFF00;
-			frame[i+2]=crc&0xFF0000;
-			frame[i+3]=crc&0xFF000000;
-			
-			for(int l=0;l<72;l++)
-			{
-		
-			}
-			//in the end of using 'temp' you have to free memory:
-			free((void*)temp->payload);
-			free(temp);
-			flagi=1;
-			}
 		}
 		if (isPhyTxReady()&&flagi)
 		{
+			if (type==0x8808 && flagi2)
+			{
+				HAL_TIM_Base_Start_IT(&htim2);
+				flagi2=0; //somwhere put 1
+			}
 			if(j< frame_size)
 			{
+				//if(ACK)
+				//printf("%x",frame[j]);
 				sendByte(frame[j]);
 				j++;
 			}
@@ -244,8 +492,9 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 				i=0;
 				flagi=0;
 				HAL_TIM_Base_Start_IT(&htim3);
-				free(frame);
+				flagi2=1;
 			}
+			//printf("raziboi");
 		}
 	}
 	
@@ -261,10 +510,8 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 		static int madpis=1;
 		static int timerlike = 0;
 		static uint8_t ok =0xaa;
-
 		if(isRxByteReady())
-		{	
-			
+		{
 			if (clock_flag ==1)
 				{	
 					//HAL_TIM_Base_Stop_IT(&htim2);
@@ -274,6 +521,7 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 			if (k==0)
 			{
 				new_frame[k] = getByte();
+			//	printf("%x",new_frame[k]);					
 				k++;
 			}
 			else
@@ -281,7 +529,8 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 			//	new_frame = (uint8_t*) calloc(1,sizeof(uint8_t));	//--------------------
 				if(k<1522)
 				{
-					new_frame[k] = getByte();		
+					new_frame[k] = getByte();	
+				//	printf("%x",new_frame[k]);	
 					k++;
 				}
 				else
@@ -319,8 +568,7 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 			old_crc += new_frame[k-3]*256;
 			old_crc += new_frame[k-2]*65536;
 			old_crc += new_frame[k-1]*(2^24);
-			//old_crc+=1;
-			if (old_crc!=new_crc)
+			if (old_crc!=new_crc&&0)
 			{
 				frame_build.syndrom = crc_error;
 				ready_for_llc=1;
@@ -347,35 +595,87 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 					}
 					if(i3>=24&&i3<=25)
 					{
-						if (i3==24)
+						if (type==0)
 						{
-							frame_build.payloadSize[i3-24]=new_frame[i3+1];
-						}
-						if (i3==25)
-						{
-							frame_build.payloadSize[i3-24]=new_frame[i3-1];
-							payload_size = new_frame[i3-1]+new_frame[i3]*256;
-							if(payload_size>1500)
+							if (i3==24)
 							{
-								frame_build.syndrom = payload_error;
-								ready_for_llc=1;
-								flag=1;
-								old_crc=0;
-								new_crc=0;
-								payload_size=0;
-								k=0;
-								i2=0;
-								i3=0;
-								ifg_rx_flag=0;
+								frame_build.payloadSize[i3-24]=new_frame[i3+1];
 							}
-							frame_build.payload = (uint8_t*) malloc((payload_size)*(sizeof(uint8_t))); //---------------------------							
+							if (i3==25)
+							{
+								frame_build.payloadSize[i3-24]=new_frame[i3-1];
+								payload_size = new_frame[i3-1]+new_frame[i3]*256;
+								if(payload_size>1500)
+								{
+									frame_build.syndrom = payload_error;
+									ready_for_llc=1;
+									flag=1;
+									old_crc=0;
+									new_crc=0;
+									payload_size=0;
+									k=0;
+									i2=0;
+									i3=0;
+									ifg_rx_flag=0;
+								}
+								frame_build.payload = (uint8_t*) malloc((payload_size)*(sizeof(uint8_t))); //---------------------------							
+							}
 						}
+							else
+						{
 
+							if(i3==24)
+							{
+								frame_build.typeLength[0]=0x88;
+							}
+							if (i3==25)
+							{
+								frame_build.typeLength[1]=0x08;
+								payload_size = (new_frame[28]+new_frame[29]*256)+2;
+								//printf("%d",payload_size);
+								if(payload_size>1500)
+								{
+									frame_build.syndrom = payload_error;
+									ready_for_llc=1;
+									flag=1;
+									old_crc=0;
+									new_crc=0;
+									payload_size=0;
+									k=0;
+									i2=0;
+									i3=0;
+									ifg_rx_flag=0;
+								}
+								frame_build.payload = (uint8_t*) malloc((payload_size)*(sizeof(uint8_t)));
+							}
+						}
 					}
 					
 					if ((i3>=26)&&(i3<26+payload_size))
 					{
-						frame_build.payload[i3-26]=new_frame[i3];
+						if (type==0)
+						{
+							frame_build.payload[i3-26]=new_frame[i3];
+						}
+						else
+						{
+							if (i3==26||i3==27)
+							{
+								frame_build.payload[i3-26]=new_frame[i3];
+							}
+							else if (i3==28)
+							{ 
+								frame_build.payloadSize[i3-28]=new_frame[i3+1];
+							}
+							else if (i3==29)
+							{
+								frame_build.payloadSize[i3-28]=new_frame[i3-1];
+							}
+							else
+							{
+								frame_build.payload[i3-28]=new_frame[i3];
+							}
+						}
 					}
 				}
 			}
@@ -395,8 +695,8 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 	void LLC_Rx()
 	{
 		static int i=0; //check if need to reset the I each time
-		if(ready_for_llc)
-		{
+		static int raz=0;
+		if(llc_Rx_ready)		{
 			payload_size = (frame_build.payloadSize[0]*256);
 			payload_size+=frame_build.payloadSize[1];
 			printf("\r\nNew frame is ready:");
@@ -414,7 +714,14 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 						printf("%x",frame_build.sourceMac[i]);
 					}
 					printf("\r\nData:");
-					for(i=0;i<payload_size;i++)
+					if(type!=0)
+					{
+						raz=2;
+						payload_size+=2;
+					}
+					else
+						raz=0;
+					for(i=raz;i<payload_size;i++)
 					{
 							printf("%c",frame_build.payload[i]);
 					}
@@ -432,7 +739,7 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 			}
 			free((void*)frame_build.payload);
 			i=0;
-			ready_for_llc=0;
+			llc_Rx_ready=0;
 		}
 	}
 	
@@ -446,7 +753,7 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
   *
   * @retval None
   */
-int main(void)//bolb
+int main(void)
 {
   /* USER CODE BEGIN 1 */
   /* USER CODE END 1 */
@@ -488,6 +795,7 @@ int main(void)//bolb
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+	ack_frame = (Ethernet_req*)malloc(sizeof(Ethernet_req));
   while (1)
   {
 		//DLL functions - DO NOT TOUCH
@@ -495,6 +803,7 @@ int main(void)//bolb
 		printer();
 		DEBUG;
 		//End Of DLL functions
+		Sub_LLC();
 		Mac_Tx();
 		Mac_Rx();
 		LLC_Rx();
@@ -623,9 +932,9 @@ static void MX_TIM2_Init(void)
   TIM_MasterConfigTypeDef sMasterConfig;
 
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 359;
+  htim2.Init.Prescaler = 1;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 999;
+  htim2.Init.Period = 5999999;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
