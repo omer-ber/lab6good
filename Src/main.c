@@ -44,6 +44,8 @@
 #include <stdlib.h>
 #include "Ethernet.h" 
 #include "template.h" 
+//#include <stdio.h>  
+//#include <time.h> 
 
 #define DEBUG debug()
 #define payload_error  11
@@ -138,7 +140,22 @@ extern uint8_t sendByte(uint8_t data); 							//sent byte to phy, it's mandatory
 extern uint8_t isNewTxRequest(void); 								//check if the upper_layer sent us new data to transmit.
 extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to transmit, it's mandatory to use "isNewTxRequest()" before call this function.
 //Important! - after finish using the Ethernet_req struct, you have to free it and also free the Ethernet_req.payload.
-	
+
+/*
+	int Randoms(int lower, int upper) 
+	{ 
+    int i; 
+    for (i = 0; i < 1; i++) { 
+        int num = (rand() % 
+           (upper - lower + 1)) + lower; 
+						if (num==1)
+							num=0;
+						else num=1;
+						return num;
+    } 
+} 	
+
+*/
 	void Sub_LLC()
 	{
 		static int first_time=1;
@@ -149,7 +166,8 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 			//printf("spayski bor shel tahat");
 			if (isNewTxRequest())
 			{
-
+				HAL_TIM_Base_Stop_IT(&htim2);
+				//rand=Randoms(1,3);
 				first_time=0;
 				temp = getTxRequeset();
 				if (rand)
@@ -208,6 +226,7 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 		}
 		else if (times_out==0 && got_ack )
 		{
+			HAL_TIM_Base_Stop_IT(&htim2);
 			if (temp!=NULL)
 			{
 				free((void*)temp->payload);
@@ -216,6 +235,7 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 			}
 			if (isNewTxRequest())
 			{
+				//rand=Randoms(1,3);
 				//stop timer
 				temp = getTxRequeset();
 				if (rand)
@@ -235,17 +255,12 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 				got_ack=0;
 			}
 		}
-		else if(times_out && !got_ack && 0)
+		else if(times_out && !got_ack )
 		{
-			printf("ma");
+			printf("not need to be here");
+			HAL_TIM_Base_Stop_IT(&htim2);
 			times_out=0;
-			temp->payloadSize[0]=new_size[0];
-			temp->payloadSize[1]=new_size[1];
-			for(int p=0;p<6;p++)
-			{
-				temp->destinationMac[p]=temp->sourceMac[p];
-				temp->sourceMac[p] = myMAC[p];				
-			}				
+			ACK=0;	
 			sub_llc_ready=1;		//resend || maybe reset stuff
 		}
 	}
@@ -349,6 +364,7 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 				{
 					if(type == 0)
 					{
+						got_ack=1;
 						frame[i]=temp->payloadSize[i-24];
 						crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(temp->payloadSize[i-24]),1);
 					}
@@ -472,10 +488,9 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 		}
 		if (isPhyTxReady()&&flagi)
 		{
-			if (type==0x8808 && flagi2)
+			if (type!=0x0000)
 			{
 				HAL_TIM_Base_Start_IT(&htim2);
-				flagi2=0; //somwhere put 1
 			}
 			if(j< frame_size)
 			{
@@ -492,7 +507,6 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 				i=0;
 				flagi=0;
 				HAL_TIM_Base_Start_IT(&htim3);
-				flagi2=1;
 			}
 			//printf("raziboi");
 		}
@@ -796,7 +810,7 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 	ack_frame = (Ethernet_req*)malloc(sizeof(Ethernet_req));
-  while (1)
+	while (1)
   {
 		//DLL functions - DO NOT TOUCH
 		HAL_UART_Receive_IT(&huart2,&recieved_value,1);
@@ -932,9 +946,9 @@ static void MX_TIM2_Init(void)
   TIM_MasterConfigTypeDef sMasterConfig;
 
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 1;
+  htim2.Init.Prescaler = 999;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 5999999;
+  htim2.Init.Period = 6999999;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
