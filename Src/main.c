@@ -141,37 +141,35 @@ extern uint8_t isNewTxRequest(void); 								//check if the upper_layer sent us 
 extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to transmit, it's mandatory to use "isNewTxRequest()" before call this function.
 //Important! - after finish using the Ethernet_req struct, you have to free it and also free the Ethernet_req.payload.
 
-/*
+
 	int Randoms(int lower, int upper) 
-	{ 
-    int i; 
-    for (i = 0; i < 1; i++) { 
+	{   
         int num = (rand() % 
            (upper - lower + 1)) + lower; 
 						if (num==1)
 							num=0;
-						else num=1;
-						return num;
-    } 
-} 	
+						else 
+							num=1;
+				return num;
+	} 	
 
-*/
 	void Sub_LLC()
 	{
+		static int tikon=0;
 		static int first_time=1;
-		static int rand =1;
+		static int rand =0;
 		static int new_size[2]={0,0};
 		if(first_time)
 		{
-			//printf("spayski bor shel tahat");
 			if (isNewTxRequest())
 			{
 				HAL_TIM_Base_Stop_IT(&htim2);
-				//rand=Randoms(1,3);
 				first_time=0;
 				temp = getTxRequeset();
+				//rand=Randoms(1,3);
 				if (rand)
 				{
+					printf("New packet");
 					temp->typeLength[0] = 0x88;
 					temp->typeLength[1] = 0x08;
 					PSN=1-PSN;
@@ -180,10 +178,12 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 				}
 				else
 				{
+					printf("Old packet");
 					temp->typeLength[0] = 0x00;
 					temp->typeLength[1] = 0x00;					
 					sub_llc_ready=1;
 					ACK = 0;		
+					got_ack = 1;
 				}
 			}
 		}
@@ -215,7 +215,7 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 				{
 					got_ack=1;
 					HAL_TIM_Base_Stop_IT(&htim2);
-					printf("\r\nGot that ACK bro");
+					printf("\r\nGot that ACK bro\r\n");
 				}
 			}
 			else
@@ -224,7 +224,7 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 			}
 			ready_for_llc=0;
 		}
-		else if (times_out==0 && got_ack )
+		else if (times_out==0 && got_ack)
 		{
 			HAL_TIM_Base_Stop_IT(&htim2);
 			if (temp!=NULL)
@@ -235,11 +235,12 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 			}
 			if (isNewTxRequest())
 			{
-				//rand=Randoms(1,3);
 				//stop timer
 				temp = getTxRequeset();
+				rand=Randoms(1,3);
 				if (rand)
 				{
+					printf("New packet");
 					temp->typeLength[0] = 0x88;
 					temp->typeLength[1] = 0x08;
 					PSN=1-PSN;
@@ -248,6 +249,7 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 				}
 				else
 				{
+					printf("Old packet");
 					temp->typeLength[0] = 0x00;
 					temp->typeLength[1] = 0x00;					
 					sub_llc_ready=1;					
@@ -255,9 +257,8 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 				got_ack=0;
 			}
 		}
-		else if(times_out && !got_ack )
+		else if(times_out && !got_ack)
 		{
-			printf("not need to be here");
 			HAL_TIM_Base_Stop_IT(&htim2);
 			times_out=0;
 			ACK=0;	
@@ -323,7 +324,9 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 						}
 						else
 						{
+									
 							frame[i]=temp->destinationMac[i-8];
+						
 							HAL_CRC_Calculate(&hcrc,(uint32_t*)&(temp->destinationMac[i-8]),1);
 						}
 					}
@@ -336,7 +339,9 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 						}
 						else
 						{
+									
 							frame[i]=temp->destinationMac[i-8];
+						
 							crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(temp->destinationMac[i-8]),1);		
 						}						
 	
@@ -351,13 +356,17 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 					}
 					else
 					{
+								
 						frame[i]=myMAC[i-14];
+					
 						crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(myMAC[i-14]),1);
 					}
 				}
 				for(i=20;i<24;i++)
 				{
+							
 					frame[i]=0;
+					
 					crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(frame[i]),1);				
 				}
 				for(i=24;i<26;i++)
@@ -388,13 +397,17 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 								
 							if(i==24)
 							{
-								frame[25]=temp->typeLength[0];
-								crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(temp->typeLength[0]),1);							
+											
+								frame[24]=temp->typeLength[1];
+
+								crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(temp->typeLength[1]),1);							
 							}
 							else
 							{
-								frame[24]=temp->typeLength[1];							
-								crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(temp->typeLength[1]),1);
+																		
+								frame[25]=temp->typeLength[0];							
+
+								crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(temp->typeLength[0]),1);
 							}							
 						}
 					}
@@ -410,11 +423,13 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 					{
 						if (i==26)
 						{
+									
 							size+=4;
 							frame[26]=ACK;
 							crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(ACK),1);							
 							frame[27]=PSN;
 							crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(PSN),1);
+
 							if(ACK)
 							{
 								frame[28]=ack_frame->payloadSize[0];
@@ -424,11 +439,12 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 								i=29;								
 							}
 							else
-							{								
+							{		
 								frame[28]=temp->payloadSize[0];
 								crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(temp->payloadSize[0]),1);							
 								frame[29]=temp->payloadSize[1];
 								crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(temp->payloadSize[1]),1);
+						
 								i=29;
 							}
 						}
@@ -440,14 +456,15 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 								crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(ack_frame->payload[i-30]),1);								
 							}
 							else
-							{
+							{								
 								frame[i]=temp->payload[i-30];
+
 								crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(temp->payload[i-30]),1);
 							}
 						}
 					}
 				}
-				if (type==0)
+				if (new_frame[24]!=0x08 && new_frame[25]!=0x88)
 				{		
 					for(i=26+size;i<68;i++)
 					{
@@ -457,9 +474,11 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 				}
 				else
 				{
-					for(i=30+size;i<68;i++)
+					for(i=26+size;i<68;i++)
 					{
+											
 						frame[i]=0;
+
 						crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(frame[i]),1);
 					}
 				}					
@@ -495,7 +514,6 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 			if(j< frame_size)
 			{
 				//if(ACK)
-				//printf("%x",frame[j]);
 				sendByte(frame[j]);
 				j++;
 			}
@@ -535,7 +553,7 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 			if (k==0)
 			{
 				new_frame[k] = getByte();
-			//	printf("%x",new_frame[k]);					
+		//	printf("%x",new_frame[k]);					
 				k++;
 			}
 			else
@@ -544,7 +562,7 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 				if(k<1522)
 				{
 					new_frame[k] = getByte();	
-				//	printf("%x",new_frame[k]);	
+					//printf("%d:%x,",k,new_frame[k]);	
 					k++;
 				}
 				else
@@ -571,8 +589,9 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 			hcrc.Init.DefaultInitValueUse = DEFAULT_INIT_VALUE_ENABLE;
 			for(i2=8;i2<k-4;i2++)
 			{	
+				//printf("%d:%x,",i2,new_frame[i2]);
 				if(i2==8)
-					HAL_CRC_Calculate(&hcrc,(uint32_t*)&(new_frame[i2]),1);	
+					new_crc = HAL_CRC_Calculate(&hcrc,(uint32_t*)&(new_frame[i2]),1);	
 				else
 				{					
 				new_crc = HAL_CRC_Accumulate(&hcrc,(uint32_t*)&(new_frame[i2]),1);
@@ -582,10 +601,20 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 			old_crc += new_frame[k-3]*256;
 			old_crc += new_frame[k-2]*65536;
 			old_crc += new_frame[k-1]*(2^24);
-			if (old_crc!=new_crc&&0)
+			if (old_crc!=new_crc)
 			{
+				if (new_frame[24]!=0x08 && new_frame[25]!=0x88)
+				{
+					llc_Rx_ready=1;
+					frame_build.typeLength[0] = 0;
+					frame_build.typeLength[1] = 0;
+				}
+				else
+				{
+					ready_for_llc=1;
+				}
 				frame_build.syndrom = crc_error;
-				ready_for_llc=1;
+				
 				flag=1;
 				old_crc=0;
 				new_crc=0;
@@ -609,8 +638,10 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 					}
 					if(i3>=24&&i3<=25)
 					{
-						if (type==0)
+						if (new_frame[24]!=0x08 && new_frame[25]!=0x88)
 						{
+							frame_build.typeLength[0] = 0;
+							frame_build.typeLength[1] = 0;
 							if (i3==24)
 							{
 								frame_build.payloadSize[i3-24]=new_frame[i3+1];
@@ -645,7 +676,7 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 							if (i3==25)
 							{
 								frame_build.typeLength[1]=0x08;
-								payload_size = (new_frame[28]+new_frame[29]*256)+2;
+								payload_size = (new_frame[28]+new_frame[29]*256)+4;
 								//printf("%d",payload_size);
 								if(payload_size>1500)
 								{
@@ -667,7 +698,7 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 					
 					if ((i3>=26)&&(i3<26+payload_size))
 					{
-						if (type==0)
+						if (new_frame[24]!=0x08 && new_frame[25]!=0x88)
 						{
 							frame_build.payload[i3-26]=new_frame[i3];
 						}
@@ -693,6 +724,7 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 					}
 				}
 			}
+
 			ready_for_llc=1;
 			flag=1;
 			old_crc=0;
