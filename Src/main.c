@@ -68,6 +68,7 @@ UART_HandleTypeDef huart2;
 uint32_t payload_size=0;
 int ifg_tx_flag=1;
 int ifg_rx_flag=0;
+static int rrand=0;
 uint8_t crc =0; ;
 int ready_for_llc=0;
 static Ethernet_res frame_build ;
@@ -157,7 +158,6 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 	{
 		static int tikon=0;
 		static int first_time=1;
-		static int rand =0;
 		static int new_size[2]={0,0};
 		if(first_time)
 		{
@@ -167,7 +167,7 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 				first_time=0;
 				temp = getTxRequeset();
 				//rand=Randoms(1,3);
-				if (rand)
+				if (rrand)
 				{
 					printf("New packet");
 					temp->typeLength[0] = 0x88;
@@ -237,8 +237,8 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 			{
 				//stop timer
 				temp = getTxRequeset();
-				rand=Randoms(1,3);
-				if (rand)
+				rrand=Randoms(1,3);
+				if (rrand)
 				{
 					printf("New packet");
 					temp->typeLength[0] = 0x88;
@@ -252,7 +252,8 @@ extern Ethernet_req* getTxRequeset(void);						//get from upper_layer data to tr
 					printf("Old packet");
 					temp->typeLength[0] = 0x00;
 					temp->typeLength[1] = 0x00;					
-					sub_llc_ready=1;					
+					sub_llc_ready=1;
+					ACK=0;	
 				}
 				got_ack=0;
 			}
